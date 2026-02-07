@@ -1,7 +1,6 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { parseOpenAPI } from './utils/openapiParser';
-import axios from 'axios';
 
 const yamlContent = ref(`openapi: 3.0.0
 info:
@@ -80,20 +79,29 @@ const executeRequest = async () => {
   const url = `${selectedBaseUrl.value}${selectedPath.value}`;
 
   try {
-    const res = await axios({
+    const res = await fetch(url, {
       method: selectedMethod.value,
-      url,
     });
-    responseData.value = JSON.stringify(res.data, null, 2);
-  } catch (error) {
-    if (error.response) {
+
+    let data;
+    const contentType = res.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      data = await res.json();
+    } else {
+      data = await res.text();
+    }
+
+    if (!res.ok) {
       responseData.value = JSON.stringify({
-        status: error.response.status,
-        data: error.response.data,
+        status: res.status,
+        statusText: res.statusText,
+        data: data,
       }, null, 2);
     } else {
-      responseData.value = error.message;
+      responseData.value = typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
     }
+  } catch (error) {
+    responseData.value = error.message;
   } finally {
     isLoading.value = false;
   }
