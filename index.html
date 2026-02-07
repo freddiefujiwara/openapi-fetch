@@ -8,6 +8,17 @@
     <meta property="og:title" content="OpenAPI Tester" />
     <meta property="og:image" content="http://freddiefujiwara.com/openapi-fetch/ogp.png" />
     <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      (function() {
+        var l = window.location;
+        if (l.search && l.search.startsWith('?/')) {
+          var decoded = l.search.slice(2).replace(/~and~/g, '&');
+          window.history.replaceState(null, null,
+            l.pathname.slice(0, l.pathname.lastIndexOf('/') + 1) + decoded + l.hash
+          );
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>

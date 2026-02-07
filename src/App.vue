@@ -1,9 +1,14 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { parseOpenAPI } from './utils/openapiParser';
 import { truncateString, truncateStringReplacer, buildUrl, parseResponse, MAX_STRING_LENGTH } from './utils/apiUtils';
+import { decodeMarkdownFromPath, encodeMarkdownToPath } from './utils/compression';
 
-const yamlContent = ref(`openapi: 3.0.0
+const route = useRoute();
+const router = useRouter();
+
+const DEFAULT_YAML = `openapi: 3.0.0
 info:
   title: Sample API
   version: 1.0.0
@@ -18,7 +23,9 @@ paths:
   /posts/1:
     get:
       summary: Get post 1
-`);
+`;
+
+const yamlContent = ref(DEFAULT_YAML);
 
 const parsedData = ref({ baseUrls: [], endpoints: [] });
 const selectedBaseUrl = ref('');
@@ -64,9 +71,20 @@ const updateParsedData = () => {
 // Initial parse
 updateParsedData();
 
-watch(yamlContent, () => {
+watch(yamlContent, (newValue) => {
   updateParsedData();
+  const compressed = encodeMarkdownToPath(newValue);
+  if (route.params.compressedData !== compressed) {
+    router.replace({ params: { compressedData: compressed } });
+  }
 });
+
+watch(() => route.params.compressedData, (newVal) => {
+  const decoded = newVal ? decodeMarkdownFromPath(newVal) : DEFAULT_YAML;
+  if (decoded && decoded !== yamlContent.value) {
+    yamlContent.value = decoded;
+  }
+}, { immediate: true });
 
 watch(selectedPath, (newPath) => {
   const methods = parsedData.value.endpoints
