@@ -105,6 +105,34 @@ const executeRequest = async () => {
 
   console.log(`Executing ${method} request to: ${url}`);
 
+  // JSONP support
+  const callbackName = queryParamsValues.value['callback'];
+  if (callbackName && callbackName.trim().length > 0 && method === 'GET') {
+    const name = callbackName.trim();
+    const script = document.createElement('script');
+
+    window[name] = (data) => {
+      responseData.value = JSON.stringify(data, null, 2);
+      isLoading.value = false;
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+      delete window[name];
+    };
+
+    script.src = url;
+    script.onerror = () => {
+      responseData.value = 'JSONP Error: Failed to load script.';
+      isLoading.value = false;
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+      delete window[name];
+    };
+    document.body.appendChild(script);
+    return;
+  }
+
   try {
     let res;
     if (method === 'GET') {
