@@ -27,6 +27,15 @@ const queryParamsValues = ref({});
 const responseData = ref('');
 const isLoading = ref(false);
 
+const MAX_STRING_LENGTH = 100;
+
+const truncateStringReplacer = (key, value) => {
+  if (typeof value === 'string' && value.length > MAX_STRING_LENGTH) {
+    return value.substring(0, MAX_STRING_LENGTH) + '...';
+  }
+  return value;
+};
+
 const currentQueryParams = computed(() => {
   const endpoint = parsedData.value.endpoints.find(
     ep => ep.path === selectedPath.value && ep.method === selectedMethod.value
@@ -112,7 +121,7 @@ const executeRequest = async () => {
     const script = document.createElement('script');
 
     window[name] = (data) => {
-      responseData.value = JSON.stringify(data, null, 2);
+      responseData.value = JSON.stringify(data, truncateStringReplacer, 2);
       isLoading.value = false;
       if (script.parentNode) {
         script.parentNode.removeChild(script);
@@ -142,13 +151,12 @@ const executeRequest = async () => {
       res = await fetch(url, { method });
     }
 
+    const responseText = await res.text();
     let data;
     try {
-      // Attempt to parse as JSON first
-      data = await res.json();
+      data = JSON.parse(responseText);
     } catch (e) {
-      // Fallback to text if JSON parsing fails
-      data = await res.text();
+      data = responseText;
     }
 
     if (!res.ok) {
@@ -156,9 +164,15 @@ const executeRequest = async () => {
         status: res.status,
         statusText: res.statusText,
         data: data,
-      }, null, 2);
+      }, truncateStringReplacer, 2);
     } else {
-      responseData.value = typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
+      if (typeof data === 'object') {
+        responseData.value = JSON.stringify(data, truncateStringReplacer, 2);
+      } else {
+        responseData.value = (typeof data === 'string' && data.length > MAX_STRING_LENGTH)
+          ? data.substring(0, MAX_STRING_LENGTH) + '...'
+          : data;
+      }
     }
   } catch (error) {
     console.error('Fetch Error:', error);
