@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { truncateString, truncateStringReplacer, buildUrl, parseResponse, MAX_STRING_LENGTH } from '../src/utils/apiUtils';
+import { truncateString, truncateStringReplacer, buildUrl, parseResponse, MAX_STRING_LENGTH, formatResponseTime } from '../src/utils/apiUtils';
 
 describe('apiUtils', () => {
   describe('truncateString', () => {
@@ -69,6 +69,14 @@ describe('apiUtils', () => {
 
     it('should return raw text for invalid JSON', () => {
       expect(parseResponse('invalid json')).toBe('invalid json');
+    });
+  });
+
+  describe('formatResponseTime', () => {
+    it('should format milliseconds correctly', () => {
+      expect(formatResponseTime(123.456)).toBe('123 ms');
+      expect(formatResponseTime(0)).toBe('0 ms');
+      expect(formatResponseTime(1000)).toBe('1000 ms');
     });
   });
 });
