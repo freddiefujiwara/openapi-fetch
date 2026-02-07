@@ -79,15 +79,16 @@ const executeRequest = async () => {
   const url = `${selectedBaseUrl.value}${selectedPath.value}`;
 
   try {
-    const res = await fetch(url, {
-      method: selectedMethod.value,
-    });
+    // Simplest fetch call to avoid potential CORS preflight issues with complex options
+    const options = { method: selectedMethod.value };
+    const res = await fetch(url, options);
 
     let data;
-    const contentType = res.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      data = await res.json();
-    } else {
+    // Robust parsing: try JSON first, fallback to text
+    try {
+      const clonedRes = res.clone();
+      data = await clonedRes.json();
+    } catch (e) {
       data = await res.text();
     }
 
@@ -101,7 +102,7 @@ const executeRequest = async () => {
       responseData.value = typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
     }
   } catch (error) {
-    responseData.value = error.message;
+    responseData.value = `Fetch Error: ${error.message}`;
   } finally {
     isLoading.value = false;
   }
