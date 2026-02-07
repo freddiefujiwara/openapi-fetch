@@ -1,4 +1,4 @@
-export const MAX_STRING_LENGTH = 100;
+export const MAX_STRING_LENGTH = 50;
 
 export const truncateString = (data, maxLength = MAX_STRING_LENGTH) => {
   if (typeof data === 'string' && data.length > maxLength) {
