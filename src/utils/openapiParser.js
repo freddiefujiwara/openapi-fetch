@@ -8,7 +8,7 @@ export function parseOpenAPI(yamlString) {
     }
 
     const servers = doc.servers || [];
-    const baseUrls = servers.map(s => s.url) || [];
+    const baseUrls = servers.map(s => s.url);
 
     // Fallback if no servers defined
     if (baseUrls.length === 0) {

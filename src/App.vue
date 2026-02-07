@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { parseOpenAPI } from './utils/openapiParser';
+import { truncateString, truncateStringReplacer, buildUrl, parseResponse, MAX_STRING_LENGTH } from './utils/apiUtils';
 
 const yamlContent = ref(`openapi: 3.0.0
 info:
@@ -26,15 +27,6 @@ const selectedMethod = ref('');
 const queryParamsValues = ref({});
 const responseData = ref('');
 const isLoading = ref(false);
-
-const MAX_STRING_LENGTH = 100;
-
-const truncateStringReplacer = (key, value) => {
-  if (typeof value === 'string' && value.length > MAX_STRING_LENGTH) {
-    return value.substring(0, MAX_STRING_LENGTH) + '...';
-  }
-  return value;
-};
 
 const currentQueryParams = computed(() => {
   const endpoint = parsedData.value.endpoints.find(
@@ -93,24 +85,8 @@ const executeRequest = async () => {
   isLoading.value = true;
   responseData.value = 'Loading...';
 
-  // Normalize URL to avoid double slashes
-  const baseUrl = selectedBaseUrl.value.replace(/\/$/, '');
-  const path = selectedPath.value.startsWith('/') ? selectedPath.value : `/${selectedPath.value}`;
-  let url = `${baseUrl}${path}`;
   const method = selectedMethod.value;
-
-  // Append query parameters
-  const searchParams = new URLSearchParams();
-  currentQueryParams.value.forEach(param => {
-    const value = queryParamsValues.value[param.name];
-    if (value !== undefined && value !== null && value !== '') {
-      searchParams.append(param.name, value);
-    }
-  });
-  const queryString = searchParams.toString();
-  if (queryString) {
-    url += (url.includes('?') ? '&' : '?') + queryString;
-  }
+  const url = buildUrl(selectedBaseUrl.value, selectedPath.value, currentQueryParams.value, queryParamsValues.value);
 
   console.log(`Executing ${method} request to: ${url}`);
 
@@ -152,12 +128,7 @@ const executeRequest = async () => {
     }
 
     const responseText = await res.text();
-    let data;
-    try {
-      data = JSON.parse(responseText);
-    } catch (e) {
-      data = responseText;
-    }
+    const data = parseResponse(responseText);
 
     if (!res.ok) {
       responseData.value = JSON.stringify({
@@ -169,9 +140,7 @@ const executeRequest = async () => {
       if (typeof data === 'object') {
         responseData.value = JSON.stringify(data, truncateStringReplacer, 2);
       } else {
-        responseData.value = (typeof data === 'string' && data.length > MAX_STRING_LENGTH)
-          ? data.substring(0, MAX_STRING_LENGTH) + '...'
-          : data;
+        responseData.value = truncateString(data);
       }
     }
   } catch (error) {
