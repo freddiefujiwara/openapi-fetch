@@ -341,4 +341,29 @@ h3 {
   margin-top: 0;
   margin-bottom: 10px;
 }
+
+@media (max-width: 768px) {
+  .container {
+    flex-direction: column;
+    height: auto;
+    width: 100%;
+    overflow: visible;
+  }
+
+  .left-pane {
+    height: 300px;
+    flex: none;
+    border-right: none;
+    border-bottom: 1px solid #ccc;
+  }
+
+  .right-pane {
+    flex: none;
+  }
+
+  .response-area {
+    height: 300px;
+    flex: none;
+  }
+}
 </style>
