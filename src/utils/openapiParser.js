@@ -18,13 +18,42 @@ export function parseOpenAPI(yamlString) {
     const paths = doc.paths || {};
     const endpoints = [];
 
-    for (const [path, methods] of Object.entries(paths)) {
-      for (const method of Object.keys(methods)) {
+    for (const [path, pathItem] of Object.entries(paths)) {
+      if (!pathItem || typeof pathItem !== 'object') continue;
+
+      const pathParameters = pathItem.parameters || [];
+
+      for (const [method, operation] of Object.entries(pathItem)) {
         // Simple check to exclude non-HTTP methods like 'parameters' or 'summary'
         if (['get', 'post', 'put', 'delete', 'patch', 'options', 'head'].includes(method.toLowerCase())) {
+          const operationParameters = operation.parameters || [];
+
+          // Combine parameters, operation level takes precedence
+          const combinedParams = new Map();
+          pathParameters.forEach(p => {
+            if (p && p.name && p.in) {
+              combinedParams.set(`${p.name}-${p.in}`, p);
+            }
+          });
+          operationParameters.forEach(p => {
+            if (p && p.name && p.in) {
+              combinedParams.set(`${p.name}-${p.in}`, p);
+            }
+          });
+
+          const queryParams = Array.from(combinedParams.values())
+            .filter(p => p.in === 'query')
+            .map(p => ({
+              name: p.name,
+              description: p.description,
+              schema: p.schema,
+              required: p.required
+            }));
+
           endpoints.push({
             path,
-            method: method.toUpperCase()
+            method: method.toUpperCase(),
+            queryParams
           });
         }
       }

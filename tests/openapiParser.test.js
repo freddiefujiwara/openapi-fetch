@@ -17,8 +17,8 @@ paths:
     const result = parseOpenAPI(yaml);
     expect(result.baseUrls).toContain('https://api.example.com');
     expect(result.endpoints).toHaveLength(2);
-    expect(result.endpoints).toContainEqual({ path: '/users', method: 'GET' });
-    expect(result.endpoints).toContainEqual({ path: '/users', method: 'POST' });
+    expect(result.endpoints).toContainEqual({ path: '/users', method: 'GET', queryParams: [] });
+    expect(result.endpoints).toContainEqual({ path: '/users', method: 'POST', queryParams: [] });
   });
 
   it('should handle missing servers and paths', () => {
@@ -42,7 +42,68 @@ paths:
 `;
     const result = parseOpenAPI(yaml);
     expect(result.endpoints).toHaveLength(1);
-    expect(result.endpoints[0]).toEqual({ path: '/users', method: 'GET' });
+    expect(result.endpoints[0].path).toBe('/users');
+    expect(result.endpoints[0].method).toBe('GET');
+    expect(result.endpoints[0].queryParams).toHaveLength(1);
+    expect(result.endpoints[0].queryParams[0].name).toBe('id');
+  });
+
+  it('should extract query parameters from operation level', () => {
+    const yaml = `
+openapi: 3.0.0
+paths:
+  /test:
+    get:
+      parameters:
+        - in: query
+          name: t
+          schema:
+            type: number
+          description: Temperature
+`;
+    const result = parseOpenAPI(yaml);
+    expect(result.endpoints[0].queryParams).toHaveLength(1);
+    expect(result.endpoints[0].queryParams[0]).toEqual({
+      name: 't',
+      schema: { type: 'number' },
+      description: 'Temperature',
+      required: undefined
+    });
+  });
+
+  it('should extract query parameters from path level', () => {
+    const yaml = `
+openapi: 3.0.0
+paths:
+  /test:
+    parameters:
+      - in: query
+        name: p
+    get: {}
+`;
+    const result = parseOpenAPI(yaml);
+    expect(result.endpoints[0].queryParams).toHaveLength(1);
+    expect(result.endpoints[0].queryParams[0].name).toBe('p');
+  });
+
+  it('should override path level parameters with operation level parameters', () => {
+    const yaml = `
+openapi: 3.0.0
+paths:
+  /test:
+    parameters:
+      - in: query
+        name: t
+        description: Path level
+    get:
+      parameters:
+        - in: query
+          name: t
+          description: Operation level
+`;
+    const result = parseOpenAPI(yaml);
+    expect(result.endpoints[0].queryParams).toHaveLength(1);
+    expect(result.endpoints[0].queryParams[0].description).toBe('Operation level');
   });
 
   it('should handle all supported HTTP methods', () => {

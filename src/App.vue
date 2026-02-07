@@ -23,8 +23,16 @@ const parsedData = ref({ baseUrls: [], endpoints: [] });
 const selectedBaseUrl = ref('');
 const selectedPath = ref('');
 const selectedMethod = ref('');
+const queryParamsValues = ref({});
 const responseData = ref('');
 const isLoading = ref(false);
+
+const currentQueryParams = computed(() => {
+  const endpoint = parsedData.value.endpoints.find(
+    ep => ep.path === selectedPath.value && ep.method === selectedMethod.value
+  );
+  return endpoint ? endpoint.queryParams : [];
+});
 
 const uniquePaths = computed(() => {
   return [...new Set(parsedData.value.endpoints.map(ep => ep.path))];
@@ -79,8 +87,21 @@ const executeRequest = async () => {
   // Normalize URL to avoid double slashes
   const baseUrl = selectedBaseUrl.value.replace(/\/$/, '');
   const path = selectedPath.value.startsWith('/') ? selectedPath.value : `/${selectedPath.value}`;
-  const url = `${baseUrl}${path}`;
+  let url = `${baseUrl}${path}`;
   const method = selectedMethod.value;
+
+  // Append query parameters
+  const searchParams = new URLSearchParams();
+  currentQueryParams.value.forEach(param => {
+    const value = queryParamsValues.value[param.name];
+    if (value !== undefined && value !== null && value !== '') {
+      searchParams.append(param.name, value);
+    }
+  });
+  const queryString = searchParams.toString();
+  if (queryString) {
+    url += (url.includes('?') ? '&' : '?') + queryString;
+  }
 
   console.log(`Executing ${method} request to: ${url}`);
 
@@ -161,6 +182,24 @@ const executeRequest = async () => {
           </select>
         </div>
 
+        <div v-for="param in currentQueryParams" :key="param.name" class="form-group">
+          <label>{{ param.name }} <span v-if="param.required" class="required">*</span> ({{ param.schema?.type || 'string' }}):</label>
+          <div v-if="param.description" class="param-desc">{{ param.description }}</div>
+
+          <select v-if="param.schema?.enum" v-model="queryParamsValues[param.name]">
+            <option value="">-- Select --</option>
+            <option v-for="val in param.schema.enum" :key="val" :value="val">
+              {{ val }}
+            </option>
+          </select>
+
+          <input v-else
+            :type="param.schema?.type === 'number' || param.schema?.type === 'integer' ? 'number' : 'text'"
+            v-model="queryParamsValues[param.name]"
+            :placeholder="param.required ? 'Required' : ''"
+          />
+        </div>
+
         <button @click="executeRequest" :disabled="!selectedPath || !selectedMethod || isLoading">
           {{ isLoading ? 'Executing...' : 'Execute' }}
         </button>
@@ -228,11 +267,22 @@ const executeRequest = async () => {
   margin-bottom: 5px;
 }
 
-.form-group select {
+.form-group select, .form-group input {
   width: 100%;
   padding: 8px;
   border-radius: 4px;
   border: 1px solid #ccc;
+  box-sizing: border-box;
+}
+
+.param-desc {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 5px;
+}
+
+.required {
+  color: red;
 }
 
 button {
