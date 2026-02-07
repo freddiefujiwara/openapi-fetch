@@ -38,3 +38,7 @@ export const parseResponse = (text) => {
     return text;
   }
 };
+
+export const formatResponseTime = (ms) => {
+  return `${Math.round(ms)} ms`;
+};

@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { parseOpenAPI } from './utils/openapiParser';
-import { truncateString, truncateStringReplacer, buildUrl, parseResponse, MAX_STRING_LENGTH } from './utils/apiUtils';
+import { truncateString, truncateStringReplacer, buildUrl, parseResponse, MAX_STRING_LENGTH, formatResponseTime } from './utils/apiUtils';
 import { decodeMarkdownFromPath, encodeMarkdownToPath } from './utils/compression';
 
 const route = useRoute();
@@ -33,6 +33,7 @@ const selectedPath = ref('');
 const selectedMethod = ref('');
 const queryParamsValues = ref({});
 const responseData = ref('');
+const responseTime = ref(null);
 const isLoading = ref(false);
 
 const currentQueryParams = computed(() => {
@@ -102,11 +103,14 @@ const executeRequest = async () => {
 
   isLoading.value = true;
   responseData.value = 'Loading...';
+  responseTime.value = null;
 
   const method = selectedMethod.value;
   const url = buildUrl(selectedBaseUrl.value, selectedPath.value, currentQueryParams.value, queryParamsValues.value);
 
   console.log(`Executing ${method} request to: ${url}`);
+
+  const startTime = performance.now();
 
   // JSONP support
   const callbackName = queryParamsValues.value['callback'];
@@ -115,6 +119,8 @@ const executeRequest = async () => {
     const script = document.createElement('script');
 
     window[name] = (data) => {
+      const endTime = performance.now();
+      responseTime.value = formatResponseTime(endTime - startTime);
       responseData.value = JSON.stringify(data, truncateStringReplacer, 2);
       isLoading.value = false;
       if (script.parentNode) {
@@ -125,6 +131,8 @@ const executeRequest = async () => {
 
     script.src = url;
     script.onerror = () => {
+      const endTime = performance.now();
+      responseTime.value = formatResponseTime(endTime - startTime);
       responseData.value = 'JSONP Error: Failed to load script.';
       isLoading.value = false;
       if (script.parentNode) {
@@ -146,6 +154,9 @@ const executeRequest = async () => {
     }
 
     const responseText = await res.text();
+    const endTime = performance.now();
+    responseTime.value = formatResponseTime(endTime - startTime);
+
     const data = parseResponse(responseText);
 
     if (!res.ok) {
@@ -162,6 +173,8 @@ const executeRequest = async () => {
       }
     }
   } catch (error) {
+    const endTime = performance.now();
+    responseTime.value = formatResponseTime(endTime - startTime);
     console.error('Fetch Error:', error);
     responseData.value = `Fetch Error: ${error.message}\nCheck console for details.`;
   } finally {
@@ -239,7 +252,10 @@ const executeRequest = async () => {
       </div>
 
       <div class="response-area">
-        <h3>Response Area</h3>
+        <h3>
+          Response Area
+          <span v-if="responseTime" class="response-time">({{ responseTime }})</span>
+        </h3>
         <pre>{{ responseData }}</pre>
       </div>
     </div>
@@ -341,6 +357,15 @@ button:disabled {
 .response-area h3 {
   margin-top: 0;
   color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.response-time {
+  font-size: 14px;
+  font-weight: normal;
+  color: #aaa;
 }
 
 pre {
