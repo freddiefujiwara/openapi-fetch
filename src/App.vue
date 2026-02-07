@@ -76,19 +76,29 @@ const executeRequest = async () => {
   isLoading.value = true;
   responseData.value = 'Loading...';
 
-  const url = `${selectedBaseUrl.value}${selectedPath.value}`;
+  // Normalize URL to avoid double slashes
+  const baseUrl = selectedBaseUrl.value.replace(/\/$/, '');
+  const path = selectedPath.value.startsWith('/') ? selectedPath.value : `/${selectedPath.value}`;
+  const url = `${baseUrl}${path}`;
+  const method = selectedMethod.value;
+
+  console.log(`Executing ${method} request to: ${url}`);
 
   try {
-    // Simplest fetch call to avoid potential CORS preflight issues with complex options
-    const options = { method: selectedMethod.value };
-    const res = await fetch(url, options);
+    let res;
+    if (method === 'GET') {
+      // Simplest possible fetch for GET to avoid CORS preflight
+      res = await fetch(url);
+    } else {
+      res = await fetch(url, { method });
+    }
 
     let data;
-    // Robust parsing: try JSON first, fallback to text
     try {
-      const clonedRes = res.clone();
-      data = await clonedRes.json();
+      // Attempt to parse as JSON first
+      data = await res.json();
     } catch (e) {
+      // Fallback to text if JSON parsing fails
       data = await res.text();
     }
 
@@ -102,7 +112,8 @@ const executeRequest = async () => {
       responseData.value = typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
     }
   } catch (error) {
-    responseData.value = `Fetch Error: ${error.message}`;
+    console.error('Fetch Error:', error);
+    responseData.value = `Fetch Error: ${error.message}\nCheck console for details.`;
   } finally {
     isLoading.value = false;
   }
