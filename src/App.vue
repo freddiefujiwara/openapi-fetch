@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { parseOpenAPI } from './utils/openapiParser';
+import { truncateString, truncateStringReplacer, buildUrl, parseResponse, MAX_STRING_LENGTH } from './utils/apiUtils';
 
 const yamlContent = ref(`openapi: 3.0.0
 info:
@@ -84,26 +85,38 @@ const executeRequest = async () => {
   isLoading.value = true;
   responseData.value = 'Loading...';
 
-  // Normalize URL to avoid double slashes
-  const baseUrl = selectedBaseUrl.value.replace(/\/$/, '');
-  const path = selectedPath.value.startsWith('/') ? selectedPath.value : `/${selectedPath.value}`;
-  let url = `${baseUrl}${path}`;
   const method = selectedMethod.value;
-
-  // Append query parameters
-  const searchParams = new URLSearchParams();
-  currentQueryParams.value.forEach(param => {
-    const value = queryParamsValues.value[param.name];
-    if (value !== undefined && value !== null && value !== '') {
-      searchParams.append(param.name, value);
-    }
-  });
-  const queryString = searchParams.toString();
-  if (queryString) {
-    url += (url.includes('?') ? '&' : '?') + queryString;
-  }
+  const url = buildUrl(selectedBaseUrl.value, selectedPath.value, currentQueryParams.value, queryParamsValues.value);
 
   console.log(`Executing ${method} request to: ${url}`);
+
+  // JSONP support
+  const callbackName = queryParamsValues.value['callback'];
+  if (callbackName && callbackName.trim().length > 0 && method === 'GET') {
+    const name = callbackName.trim();
+    const script = document.createElement('script');
+
+    window[name] = (data) => {
+      responseData.value = JSON.stringify(data, truncateStringReplacer, 2);
+      isLoading.value = false;
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+      delete window[name];
+    };
+
+    script.src = url;
+    script.onerror = () => {
+      responseData.value = 'JSONP Error: Failed to load script.';
+      isLoading.value = false;
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+      delete window[name];
+    };
+    document.body.appendChild(script);
+    return;
+  }
 
   try {
     let res;
@@ -114,23 +127,21 @@ const executeRequest = async () => {
       res = await fetch(url, { method });
     }
 
-    let data;
-    try {
-      // Attempt to parse as JSON first
-      data = await res.json();
-    } catch (e) {
-      // Fallback to text if JSON parsing fails
-      data = await res.text();
-    }
+    const responseText = await res.text();
+    const data = parseResponse(responseText);
 
     if (!res.ok) {
       responseData.value = JSON.stringify({
         status: res.status,
         statusText: res.statusText,
         data: data,
-      }, null, 2);
+      }, truncateStringReplacer, 2);
     } else {
-      responseData.value = typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
+      if (typeof data === 'object') {
+        responseData.value = JSON.stringify(data, truncateStringReplacer, 2);
+      } else {
+        responseData.value = truncateString(data);
+      }
     }
   } catch (error) {
     console.error('Fetch Error:', error);

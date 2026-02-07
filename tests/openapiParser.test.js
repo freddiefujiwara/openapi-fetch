@@ -28,6 +28,19 @@ paths:
     expect(result.endpoints).toEqual([]);
   });
 
+  it('should ignore invalid path items', () => {
+    const yaml = `
+openapi: 3.0.0
+paths:
+  /invalid: null
+  /valid:
+    get: {}
+`;
+    const result = parseOpenAPI(yaml);
+    expect(result.endpoints).toHaveLength(1);
+    expect(result.endpoints[0].path).toBe('/valid');
+  });
+
   it('should ignore non-HTTP methods and parameters', () => {
     const yaml = `
 openapi: 3.0.0
