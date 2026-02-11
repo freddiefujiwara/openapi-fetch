@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment jsdom
+ */
 import { describe, it, expect } from 'vitest';
 import { truncateString, truncateStringReplacer, buildUrl, parseResponse, MAX_STRING_LENGTH, formatResponseTime } from '../src/utils/apiUtils';
 
@@ -69,6 +72,72 @@ describe('apiUtils', () => {
 
     it('should return raw text for invalid JSON', () => {
       expect(parseResponse('invalid json')).toBe('invalid json');
+    });
+
+    it('should parse simple XML', () => {
+      const xml = '<root><child>value</child></root>';
+      expect(parseResponse(xml)).toEqual({ root: { child: 'value' } });
+    });
+
+    it('should parse XML with attributes', () => {
+      const xml = '<root id="1"><child type="text">value</child></root>';
+      expect(parseResponse(xml)).toEqual({
+        root: {
+          '@attributes': { id: '1' },
+          child: {
+            '@attributes': { type: 'text' },
+            '#text': 'value'
+          }
+        }
+      });
+    });
+
+    it('should parse XML with multiple children of same name into an array', () => {
+      const xml = '<root><item>1</item><item>2</item></root>';
+      expect(parseResponse(xml)).toEqual({
+        root: {
+          item: ['1', '2']
+        }
+      });
+    });
+
+    it('should parse XML with nested structures', () => {
+      const xml = '<root><a><b><c>val</c></b></a></root>';
+      expect(parseResponse(xml)).toEqual({
+        root: {
+          a: { b: { c: 'val' } }
+        }
+      });
+    });
+
+    it('should handle empty elements', () => {
+      const xml = '<root><empty/></root>';
+      expect(parseResponse(xml)).toEqual({ root: { empty: '' } });
+    });
+
+    it('should return raw text for invalid XML starting with <', () => {
+      const invalidXml = '<root><unclosed>';
+      expect(parseResponse(invalidXml)).toBe(invalidXml);
+    });
+
+    it('should handle XML with mixed content', () => {
+      const xml = '<root>text1<child>val</child>text2</root>';
+      expect(parseResponse(xml)).toEqual({
+        root: {
+          '#text': 'text1text2',
+          child: 'val'
+        }
+      });
+    });
+
+    it('should handle DOMParser throwing an error', () => {
+      const originalDOMParser = global.DOMParser;
+      global.DOMParser = class {
+        parseFromString() { throw new Error('mock error'); }
+      };
+      const xml = '<root/>';
+      expect(parseResponse(xml)).toBe(xml);
+      global.DOMParser = originalDOMParser;
     });
   });
 
