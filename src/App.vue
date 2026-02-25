@@ -189,82 +189,99 @@ const executeRequest = async () => {
       <h1>openapi-fetch</h1>
     </header>
 
-    <div class="table-wrap">
-      <h3>OpenAPI YAML Editor</h3>
-      <textarea
-        v-model="yamlContent"
-        placeholder="Paste your OpenAPI YAML here..."
-      ></textarea>
-    </div>
-
-    <div class="table-wrap">
-      <h3>Control Panel</h3>
-
-      <div class="form-group">
-        <label>Base URL:</label>
-        <select v-model="selectedBaseUrl">
-          <option v-for="url in parsedData.baseUrls" :key="url" :value="url">
-            {{ url }}
-          </option>
-        </select>
+    <div class="main-content">
+      <div class="pane left-pane">
+        <div class="table-wrap">
+          <h3>OpenAPI YAML Editor</h3>
+          <textarea
+            v-model="yamlContent"
+            placeholder="Paste your OpenAPI YAML here..."
+          ></textarea>
+        </div>
       </div>
 
-      <div class="form-group">
-        <label>Path:</label>
-        <select v-model="selectedPath">
-          <option v-for="path in uniquePaths" :key="path" :value="path">
-            {{ path }}
-          </option>
-        </select>
+      <div class="pane right-pane">
+        <div class="table-wrap">
+          <h3>Control Panel</h3>
+
+          <div class="form-group">
+            <label>Base URL:</label>
+            <select v-model="selectedBaseUrl">
+              <option v-for="url in parsedData.baseUrls" :key="url" :value="url">
+                {{ url }}
+              </option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Path:</label>
+            <select v-model="selectedPath">
+              <option v-for="path in uniquePaths" :key="path" :value="path">
+                {{ path }}
+              </option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Method:</label>
+            <select v-model="selectedMethod">
+              <option v-for="method in availableMethods" :key="method" :value="method">
+                {{ method }}
+              </option>
+            </select>
+          </div>
+
+          <div v-for="param in currentQueryParams" :key="param.name" class="form-group">
+            <label>{{ param.name }} <span v-if="param.required" class="required">*</span> ({{ param.schema?.type || 'string' }}):</label>
+            <div v-if="param.description" class="param-desc">{{ param.description }}</div>
+
+            <select v-if="param.schema?.enum" v-model="queryParamsValues[param.name]">
+              <option value="">-- Select --</option>
+              <option v-for="val in param.schema.enum" :key="val" :value="val">
+                {{ val }}
+              </option>
+            </select>
+
+            <input v-else
+              :type="param.schema?.type === 'number' || param.schema?.type === 'integer' ? 'number' : 'text'"
+              v-model="queryParamsValues[param.name]"
+              :placeholder="param.required ? 'Required' : ''"
+            />
+          </div>
+
+          <button @click="executeRequest" :disabled="!selectedPath || !selectedMethod || isLoading">
+            {{ isLoading ? 'Executing...' : 'Execute' }}
+          </button>
+
+          <div v-if="parsedData.error" class="error-msg">
+            YAML Parse Error: {{ parsedData.error }}
+          </div>
+        </div>
+
+        <div class="table-wrap response-area">
+          <h3>
+            Response Area
+            <span v-if="responseTime" class="response-time">({{ responseTime }})</span>
+          </h3>
+          <pre>{{ responseData }}</pre>
+        </div>
       </div>
-
-      <div class="form-group">
-        <label>Method:</label>
-        <select v-model="selectedMethod">
-          <option v-for="method in availableMethods" :key="method" :value="method">
-            {{ method }}
-          </option>
-        </select>
-      </div>
-
-      <div v-for="param in currentQueryParams" :key="param.name" class="form-group">
-        <label>{{ param.name }} <span v-if="param.required" class="required">*</span> ({{ param.schema?.type || 'string' }}):</label>
-        <div v-if="param.description" class="param-desc">{{ param.description }}</div>
-
-        <select v-if="param.schema?.enum" v-model="queryParamsValues[param.name]">
-          <option value="">-- Select --</option>
-          <option v-for="val in param.schema.enum" :key="val" :value="val">
-            {{ val }}
-          </option>
-        </select>
-
-        <input v-else
-          :type="param.schema?.type === 'number' || param.schema?.type === 'integer' ? 'number' : 'text'"
-          v-model="queryParamsValues[param.name]"
-          :placeholder="param.required ? 'Required' : ''"
-        />
-      </div>
-
-      <button @click="executeRequest" :disabled="!selectedPath || !selectedMethod || isLoading">
-        {{ isLoading ? 'Executing...' : 'Execute' }}
-      </button>
-
-      <div v-if="parsedData.error" class="error-msg">
-        YAML Parse Error: {{ parsedData.error }}
-      </div>
-    </div>
-
-    <div class="table-wrap response-area">
-      <h3>
-        Response Area
-        <span v-if="responseTime" class="response-time">({{ responseTime }})</span>
-      </h3>
-      <pre>{{ responseData }}</pre>
     </div>
   </div>
 </template>
 
 <style scoped>
+.main-content {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.pane {
+  flex: 1;
+  min-width: 0;
+}
+
 h3 {
   margin-top: 0;
   margin-bottom: 12px;
@@ -274,7 +291,7 @@ h3 {
 
 textarea {
   width: 100%;
-  min-height: 200px;
+  min-height: 500px;
   font-family: monospace;
   font-size: 14px;
   resize: vertical;
@@ -333,5 +350,19 @@ pre {
   color: var(--error);
   margin-top: 10px;
   font-size: 12px;
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    flex-direction: column;
+  }
+
+  .pane {
+    width: 100%;
+  }
+
+  textarea {
+    min-height: 200px;
+  }
 }
 </style>
